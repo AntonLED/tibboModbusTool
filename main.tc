@@ -1,0 +1,76 @@
+#include "global.th"
+#includeb "global.tbh"
+
+//====================================================================
+
+string get_data(string dataVal)
+{
+	string request = "";
+	RtuPacket packet; 
+	packet.slaveId = 65;
+	packet.funcCode = readInputRegisters; 
+	if (dataVal == "temp")
+	{
+		unsigned int temp_addr = 400, hum_addr = 404; 
+		packet.data += chr(temp_addr >> 8) + 
+					   chr(temp_addr & 0xFF);
+		packet.data += chr(0) +
+					   chr(1); 
+	} 
+	request += chr(packet.slaveId);
+	request += chr(packet.funcCode); 
+	request += packet.data; 
+	
+	packet.crc = CRC16(request, len(request)); 
+	request += chr(packet.crc >> 8) +
+			   chr(packet.crc & 0xFF);
+			   
+	return request; 
+}
+
+
+void on_sys_init()
+{
+	string dev_ip = "192.168.1.213";
+	string dev_netmask = "255.255.255.0";
+	string dev_gateway = "0.0.0.0";
+	
+	net.ip = dev_ip;
+	net.netmask = dev_netmask; 
+	net.gatewayip = dev_gateway; 
+		
+//	// Tibbits setup
+//	if (tibbits_init())
+//		pat.play("--G-G-G", PL_PAT_CANINT);
+//	else 
+//		pat.play("--R-R-R", PL_PAT_CANINT); 		
+	
+	// Modbus setup 
+	if (modbus_init(modbusTcp) && modbus_init(modbusRtu))
+		pat.play("--G-G-G", PL_PAT_CANINT);
+	else 
+		pat.play("--R-R-R", PL_PAT_CANINT); 
+}
+
+void on_sys_timer()
+{	
+	if (modbus_rtu_send(get_data("temp"), TBT5_SLOT))
+		pat.play("B", PL_PAT_NOINT); 
+}
+
+void on_sock_data_arrival()
+{
+	for (int i = 0; i < MODBUS_SLAVEMODE_SOCKS_MAX; ++i)
+		if (sock.num == modbus_slavemode_socks[i])
+			if (modbus_recieve(sock.getdata(255), sock.num, modbusSlave, modbusTcp)) 
+				pat.play("G", PL_PAT_NOINT); 
+			else 
+				pat.play("R", PL_PAT_NOINT); 
+}
+
+void on_ser_data_arrival()
+{
+	if (ser.num == TBT5_SLOT)
+		modbus_recieve(ser.getdata(255), ser.num, modbusMaster, modbusRtu);
+}
+	 

@@ -1,0 +1,77 @@
+// defines
+#define MODBUS_UNIT_ID 5 
+#define MODBUS_SLAVEMODE_SOCKS_MAX 6
+#define MODBUS_MASTERMODE_SOCKS_MAX 3
+#define MODBUS_SLAVES_TCP_COUNT 3 
+#define MODBUS_SLAVES_RTU_COUT 0
+#define CONNECTION_TIMEOUT 3000
+
+// types
+typedef unsigned char modbusSocket; 
+
+enum modbusFunctions
+{
+	readCoilStatus = 1,
+	readDiscreteInputs = 2,
+	readHoldingRegisters = 3,
+	readInputRegisters = 4, 
+	writeSingleCoil = 5,
+	writeSingleRegister = 6,
+	writeMultipleCoils = 15,
+	writeMultipleRegisters = 16
+};
+
+struct MbapHeader
+{
+	unsigned int transId; 
+	unsigned int protId; 
+	unsigned int length; 
+	unsigned char unitId; 
+}; 
+
+struct PDU
+{
+	modbusFunctions funcCode; 
+	string data; 
+};
+
+struct TcpPacket
+{
+	MbapHeader header; 
+	PDU pdu; 
+};
+
+struct RtuPacket
+{
+	unsigned char slaveId; 
+	modbusFunctions funcCode; 
+	string data; 
+	unsigned int crc; 
+};
+
+enum modbusRole
+{
+	modbusMaster, 
+	modbusSlave
+};
+
+enum modbusMode
+{
+	modbusTcp,
+	modbusRtu 
+};
+
+// arrays - conteainers for sockets 
+extern modbusSocket modbus_mastermode_socks[MODBUS_MASTERMODE_SOCKS_MAX]; 
+extern modbusSocket modbus_slavemode_socks[MODBUS_SLAVEMODE_SOCKS_MAX]; 
+// slaves ips list 
+extern string modbus_slaves_ips[MODBUS_SLAVES_TCP_COUNT]; 
+// functions 
+extern bool modbus_init(modbusMode mode);
+extern bool modbus_recieve(string& data, modbusSocket socket, modbusRole role, modbusMode mode); 
+	extern bool modbus_tcp_recieve(string& data, modbusSocket socket, modbusRole role); 
+	extern bool modbus_rtu_recieve(string& data, modbusSocket socket, modbusRole role);
+extern bool modbus_tcp_send(string& data, modbusSocket socket); 
+extern bool modbus_rtu_send(string& data, modbusSocket socket);
+extern bool modbus_outgoing_connect(modbusSocket socket, string& slaveIp); 
+extern bool modbus_outgoing_disconnect(modbusSocket socket, string& slaveIp); 

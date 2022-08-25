@@ -1,0 +1,12 @@
+// INCLUDES
+#include "modbus.th"
+#include "crc.th"
+#include "callbacks.th"
+
+// DEFINES 
+#define TBT5_SLOT 0
+#define TBT5_TX1 PL_IO_NUM_9_TX0
+#define TBT5_RX1 PL_IO_NUM_9_RX0
+#define TBT5_RTC1 0
+
+// DECLARATIONS

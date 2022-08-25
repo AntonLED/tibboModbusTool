@@ -1,0 +1,273 @@
+#include "global.th"
+#includeb "global.tbh"
+
+//---------------------------------------------------------------------------------------------------->
+	string hex_to_dec(string hi,string lo)
+	{
+		string dec_val;
+		if (len(lo)==3){
+			lo="0"+right(lo,1);
+		}else{
+			lo=right(lo,2);
+		}
+		dec_val=hi+lo;
+		dec_val=val(dec_val);
+		return dec_val;	
+	}
+
+	string get_temp_and_hum(string rawdata) {
+		string temp, hum, result;
+		temp = hex_to_dec(hex(rawdata[3]),hex(rawdata[4]));
+		if (val(temp)>32767) {
+			temp=val(temp)-65536;
+		}
+		temp=left(temp,len(temp)-1)+"."+right(temp,1);
+		if (len(temp)<=2){
+		temp="0"+temp;
+		}
+		hum = hex_to_dec(hex(rawdata[11]),hex(rawdata[12]));
+		hum=left(hum,len(hum)-1)+"."+right(hum,1);
+		if (len(hum)<=2){
+		hum="0"+hum;
+		};
+		if (val(temp)<5 || val(temp)>50){
+			hum = "--";
+		}
+		result=temp+"x"+hum;
+		return result;
+	} 
+//---------------------------------------------------------------------------------------------------->
+
+modbusSocket modbus_mastermode_socks[MODBUS_MASTERMODE_SOCKS_MAX]; 
+modbusSocket modbus_slavemode_socks[MODBUS_SLAVEMODE_SOCKS_MAX]; 
+string modbus_slaves_ips[MODBUS_SLAVES_TCP_COUNT];
+
+bool modbus_init(modbusMode mode)
+{
+	if (mode == modbusTcp) 
+	{
+		// slavemode socks init 
+		for (int i = 0; i < MODBUS_SLAVEMODE_SOCKS_MAX; ++i)
+		{
+			modbus_slavemode_socks[i] = sock_get("MBSM" + str(i)); 
+			sock.num = modbus_slavemode_socks[i]; 
+			sock.protocol = PL_SOCK_PROTOCOL_TCP; 
+			sock.localportlist = "502"; 
+			sock.inconmode = PL_SOCK_INCONMODE_ANY_IP_ANY_PORT; 
+			sock.reconmode = PL_SOCK_RECONMODE_0;
+			sock.allowedinterfaces = "NET"; 
+			sock.connectiontout = 10; 
+			if (sock.txbuffrq(3) != 3 || sock.rxbuffrq(3) != 3)
+				return false; 
+			else 
+				sys.buffalloc(); 
+		}
+		// mastermode socks init 
+		for (int i = 0; i < MODBUS_MASTERMODE_SOCKS_MAX; ++i)
+		{
+			modbus_mastermode_socks[i] = sock_get("MBMM" + str(i));
+			if (sock.txbuffrq(1) != 1 || sock.rxbuffrq(1) != 1)
+				return false; 
+			else 
+				sys.buffalloc();
+		}	
+	}
+	else if (mode == modbusRtu)
+	{
+		io.num = TBT5_RTC1;
+		io.enabled = YES;
+		io.state = HIGH;	
+		ser.num = TBT5_SLOT;
+		ser.parity = PL_SER_PR_NONE; 
+		ser.bits = PL_SER_BB_8;
+		ser.flowcontrol = PL_SER_FC_DISABLED;		
+		ser.baudrate = PL_SER_BAUD_38400;
+		ser.interface = PL_SER_SI_HALFDUPLEX;
+		ser.esctype = PL_SER_ET_DISABLED;
+		ser.interchardelay = 1;
+		if (ser.rxbuffrq(1) != 1 || ser.txbuffrq(1) != 1)
+			return false; 
+		else 
+			sys.buffalloc();
+		ser.enabled = YES;
+	}
+	
+	return true; 
+}
+
+bool modbus_recieve(string& data, modbusSocket socket, modbusRole role, modbusMode mode)
+{
+	switch (mode)
+	{
+	case modbusTcp:
+		return modbus_tcp_recieve(data, socket, role); 
+		break;
+	
+	case modbusRtu:
+		return modbus_rtu_recieve(data, socket, role); 
+		break;
+	
+	default:
+		return false; 
+	}
+}
+
+bool modbus_tcp_recieve(string& data, modbusSocket socket, modbusRole role)
+{	
+	if (len(data) < 8) 
+			return false; 
+	switch (role)
+	{
+		case modbusMaster:
+			return false; 
+			break;
+		
+		case modbusSlave:
+			TcpPacket reqPacket; 
+			reqPacket.header.transId = asc(mid(data, 1, 1)) * 256 + asc(mid(data, 2, 1)); 
+			reqPacket.header.protId = asc(mid(data, 3, 1)) * 256 + asc(mid(data, 4, 1)); 
+			reqPacket.header.length = asc(mid(data, 5, 1)) * 256 + asc(mid(data, 6, 1)); 
+			if (reqPacket.header.protId != 0)
+				return false; 
+			reqPacket.header.unitId = asc(mid(data, 7, 1)); 
+			if (reqPacket.header.unitId == MODBUS_UNIT_ID)
+			{
+				reqPacket.pdu.funcCode = asc(mid(data, 8, 1)); 				
+				if (reqPacket.pdu.funcCode == readCoilStatus)
+				{
+					int modbus_start_ref =  asc(mid(data, 9, 1)) * 256 + asc(mid(data, 10, 1)); 
+					int modbus_reg_count = asc(mid(data, 11, 1)) * 256 + asc(mid(data, 12, 1)); 
+					string response = "";
+					unsigned char state = 1;
+					response += chr(reqPacket.header.transId >> 8) +
+								chr(reqPacket.header.transId & 0xFF);
+					response += chr(reqPacket.header.protId >> 8) +
+								chr(reqPacket.header.protId & 0xFF);
+					response += chr(0) +
+								chr(4);
+					response += chr(reqPacket.header.unitId);
+					response += chr(reqPacket.pdu.funcCode); 
+					response += chr(1); 
+					response += chr(state); 
+					return modbus_tcp_send(response, socket); 
+				}
+			}
+			return false; 
+			break;	
+		
+		default:
+			return false; 
+	}
+}
+
+bool modbus_rtu_recieve(string& data, modbusSocket socket, modbusRole role)
+{
+	switch (role)
+	{
+	case modbusMaster:	
+		RtuPacket respPacket; 
+		respPacket.slaveId = asc(mid(data, 1, 1)); 
+		respPacket.funcCode = asc(mid(data, 2, 1)); 
+		unsigned char count = asc(mid(data, 3, 1));
+	    respPacket.data = mid(data, 4, count);  
+		respPacket.crc = asc(mid(data, len(data)-1, 1)) * 256 + asc(mid(data, len(data), 1)); 
+		unsigned int crc = CRC16(data, len(data) - 2); 
+		if (respPacket.slaveId == 65)
+		{
+			if (crc == respPacket.crc)
+			{
+				sys.debugprint(get_temp_and_hum(data) + "\n");
+				return true;	
+			}
+			else 
+				return false; 
+		}
+		else 
+			return false; 
+		break;
+	
+	case modbusSlave:
+		return false;
+		break;
+	
+	default:
+		return false; 
+	}
+}
+
+bool modbus_tcp_send(string& data, modbusSocket socket)
+{
+	sock.num = socket; 
+	if (sock.statesimple == PL_SSTS_EST) 
+	{
+		sock.setdata(data);
+		sock.send();
+		return true; 
+	}
+	return false;
+}
+
+bool modbus_rtu_send(string& data, modbusSocket socket)
+{
+	ser.num = socket; 
+	ser.setdata(data); 
+	ser.send(); 
+	return true; 
+}
+
+bool modbus_outgoing_connect(modbusSocket socket, string& slaveIp)
+{
+	sock.num = socket; 
+	sock.protocol = PL_SOCK_PROTOCOL_TCP; 
+	sock.allowedinterfaces = "NET"; 
+	sock.targetinterface = PL_SOCK_INTERFACE_NET; 
+	sock.targetip = slaveIp; 
+	sock.targetport = 502; 
+	if (sock.txbuffrq(1) != 1 || sock.rxbuffrq(1) != 1)
+		return false; 
+	else
+		sys.buffalloc(); 
+	sock.connect(); 
+	unsigned long time = sys.timercountms;
+	while (sock.statesimple != PL_SSTS_EST)
+	{
+		doevents;
+		if (sys.timercountms - time >= CONNECTION_TIMEOUT)
+			break; 
+	}
+	doevents; 
+	if (sock.statesimple == PL_SSTS_EST)
+	{
+		pat.play("G--G--G", PL_PAT_NOINT); 
+		return true;
+	}
+	else
+	{
+		pat.play("R--R--R", PL_PAT_NOINT); 
+		return false; 
+	}
+}
+
+bool modbus_outgoing_disconnect(modbusSocket socket, string& slaveIp)
+{
+	sock.num = socket; 
+	sock.close();
+	unsigned long time = sys.timercountms;
+	while (sock.statesimple != PL_SSTS_CLOSED)
+	{
+		doevents;
+		if (sys.timercountms - time >= CONNECTION_TIMEOUT)
+			break;
+	}
+	doevents; 
+	if (sock.statesimple == PL_SSTS_CLOSED)
+	{
+		pat.play("G--G--G", PL_PAT_NOINT);
+		return true; 
+	}
+	else 
+	{
+		pat.play("R--R--R", PL_PAT_NOINT); 
+		return false; 
+	}
+}

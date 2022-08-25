@@ -1,0 +1,2 @@
+unsigned int CRC16(unsigned char* puchMsg, unsigned short usDataLen); 
+unsigned int LRC8(unsigned char* puchMsg, unsigned short usDataLen); 
