@@ -1,2 +1,0 @@
-extern void callback_modbus_tcp_recieve(string& data); 
-extern void callback_modbus_rtu_recieve(string& data); 

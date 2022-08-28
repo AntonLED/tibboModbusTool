@@ -2,8 +2,7 @@
 #includeb "global.tbh"
 
 //====================================================================
-
-string get_data(string dataVal)
+string get_data_rtu(string dataVal)
 {
 	string request = "";
 	RtuPacket packet; 
@@ -25,6 +24,37 @@ string get_data(string dataVal)
 	request += chr(packet.crc >> 8) +
 			   chr(packet.crc & 0xFF);
 			   
+	return request; 
+}
+
+string get_data_tcp()
+{
+	string request = "";
+	TcpPacket packet; 
+	packet.header.transId = 1; 
+	packet.header.protId = 0;
+	packet.header.length = 4;
+	packet.header.unitId = 1; 
+	packet.pdu.funcCode = readInputRegisters; 
+	
+	request += chr(packet.header.transId >> 8) +
+			   chr(packet.header.transId & 0xFF); 
+	request += chr(packet.header.protId >> 8) +
+			   chr(packet.header.protId & 0xFF);
+	request += chr(packet.header.length >> 8) + 
+			   chr(packet.header.length & 0xFF); 
+	request += chr(packet.header.unitId);
+	request += chr(packet.pdu.funcCode); 
+
+	unsigned int regAddr = 7520; 
+	unsigned int regCount = 2; 
+	packet.pdu.data += chr(regAddr >> 8) + 
+					   chr(regAddr & 0xFF); 
+	packet.pdu.data += chr(regCount >> 8) +
+					   chr(regCount & 0xFF); 
+	
+	request += packet.pdu.data; 
+	
 	return request; 
 }
 
@@ -68,6 +98,11 @@ void on_sys_init()
 //	if (modbus_rtu_send(get_data("temp"), TBT5_SLOT))
 //		pat.play("B", PL_PAT_NOINT); 
 //}
+
+void on_sys_timer()
+{
+	modbus_tcp_slaves_polling_operation(); 
+}
 
 void on_sock_data_arrival()
 {

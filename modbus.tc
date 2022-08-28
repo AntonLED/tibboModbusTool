@@ -71,6 +71,9 @@ bool modbus_init(modbusMode mode)
 			else 
 				sys.buffalloc();
 		}	
+		modbus_slaves_ips[0] = "192.168.1.98";
+		modbus_slaves_ips[1] = "192.168.1.102";
+		modbus_slaves_ips[2] = "192.168.1.51";
 	}
 	else if (mode == modbusRtu)
 	{
@@ -101,11 +104,11 @@ bool modbus_recieve(string& data, modbusSocket socket, modbusRole role, modbusMo
 	{
 	case modbusTcp:
 		return modbus_tcp_recieve(data, socket, role); 
-		break;
+	break;
 	
 	case modbusRtu:
 		return modbus_rtu_recieve(data, socket, role); 
-		break;
+	break;
 	
 	default:
 		return false; 
@@ -119,8 +122,9 @@ bool modbus_tcp_recieve(string& data, modbusSocket socket, modbusRole role)
 	switch (role)
 	{
 		case modbusMaster:
+			callback_modbus_tcp_master_recieve(); 
 			return false; 
-			break;
+		break;
 		
 		case modbusSlave:
 			TcpPacket reqPacket; 
@@ -166,7 +170,7 @@ bool modbus_tcp_recieve(string& data, modbusSocket socket, modbusRole role)
 					float analogSig; 
 					tbt53_get_current(analogSig); 
 					analogSig += 1.0; 
-					if (modbus_rtu_send(get_data("temp"), TBT5_SLOT))
+					if (modbus_rtu_send(get_data_rtu("temp"), TBT5_SLOT))
 						pat.play("B", PL_PAT_NOINT); 
 					unsigned int tempSig = temp; 
 					unsigned int sig = val(ftostr(analogSig * 1000, FTOSTR_MODE_PLAIN, 3)); 
@@ -178,7 +182,7 @@ bool modbus_tcp_recieve(string& data, modbusSocket socket, modbusRole role)
 				}
 			}
 			return false; 
-			break;	
+		break;	
 		
 		default:
 			return false; 
@@ -202,7 +206,7 @@ bool modbus_rtu_recieve(string& data, modbusSocket socket, modbusRole role)
 			if (crc == respPacket.crc)
 			{
 				temp = strtof(get_temp_and_hum(data)); 
-				sys.debugprint(str(temp) + "\n"); 
+//				sys.debugprint(str(temp) + "\n"); 
 				return true;	
 			}
 			else 
@@ -210,11 +214,11 @@ bool modbus_rtu_recieve(string& data, modbusSocket socket, modbusRole role)
 		}
 		else 
 			return false; 
-		break;
+	break;
 	
 	case modbusSlave:
 		return false;
-		break;
+	break;
 	
 	default:
 		return false; 
@@ -296,4 +300,65 @@ bool modbus_outgoing_disconnect(modbusSocket socket, string& slaveIp)
 		pat.play("R--R--R", PL_PAT_NOINT); 
 		return false; 
 	}
+}
+
+// ----------------------------------------------------------------------------------------------------
+bool onPollingTcpSlaves = false; 
+bool onMasterRecieve = false; 
+unsigned int curTcpSlaveNum = 0; 
+unsigned int pollingOperationTimerCounter; 
+
+void modbus_tcp_slaves_polling_operation()
+{
+	if (onPollingTcpSlaves)
+	{
+		sock.num = modbus_mastermode_socks[curTcpSlaveNum]; 
+		if (!onMasterRecieve)
+		{
+			if (sock.statesimple == PL_SSTS_EST)
+			{
+				modbus_tcp_send(get_data_tcp(), sock.num); 
+			}
+			else 
+			{
+				if (modbus_outgoing_connect(sock.num, modbus_slaves_ips[curTcpSlaveNum]))
+				{
+					sys.debugprint("connect!\n"); 
+				}
+				else 
+				{
+					sys.debugprint("loooose\n");
+					sys.debugprint(sock.targetip + "\n");
+					curTcpSlaveNum += 1;				
+				}	
+			}
+		}
+		else 
+		{
+			onMasterRecieve = false; 
+			modbus_outgoing_disconnect(sock.num, modbus_slaves_ips[curTcpSlaveNum]);
+			curTcpSlaveNum += 1; 
+		}
+		
+		if (curTcpSlaveNum == MODBUS_SLAVES_TCP_COUNT)
+		{
+			curTcpSlaveNum = 0; 
+			onPollingTcpSlaves = false;
+			sys.debugprint("-----------\n"); 
+		}
+	}
+	else 
+	{
+		pollingOperationTimerCounter += 1;
+		if (pollingOperationTimerCounter == TCP_SLAVE_POLLING_TIMEOUT)
+		{
+			pollingOperationTimerCounter = 0; 
+			onPollingTcpSlaves = true; 
+		}
+	}
+}
+	
+void callback_modbus_tcp_master_recieve()
+{
+	onMasterRecieve = true; 
 }

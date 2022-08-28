@@ -1,7 +1,7 @@
 // INCLUDES
 #include "modbus.th"
 #include "crc.th"
-#include "callbacks.th"
+#include "device.th"
 
 // DEFINES 
 #define TBT5_SLOT 0
@@ -12,4 +12,5 @@
 // DECLARATIONS
 extern float analogSignal; 
 extern float temp; 
-extern string get_data(string dataVal); 
+extern string get_data_rtu(string dataVal); 
+extern string get_data_tcp(); 

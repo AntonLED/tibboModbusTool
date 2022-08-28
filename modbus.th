@@ -75,3 +75,15 @@ extern bool modbus_tcp_send(string& data, modbusSocket socket);
 extern bool modbus_rtu_send(string& data, modbusSocket socket);
 extern bool modbus_outgoing_connect(modbusSocket socket, string& slaveIp); 
 extern bool modbus_outgoing_disconnect(modbusSocket socket, string& slaveIp); 
+
+// ----------------------------------------------------------------------------------------------------
+#define TCP_SLAVE_POLLING_TIMEOUT 10 // in half-seconds
+// operation GLOBAL variables
+extern bool onPollingTcpSlaves;  
+extern bool onMasterRecieve; 
+extern unsigned int curTcpSlaveNum; 
+extern unsigned int pollingOperationTimerCounter; // in half-seconds 
+// operation functions
+extern void modbus_tcp_slaves_polling_operation();
+// callbacks functions (ADD MORE RECENTLY)
+extern void callback_modbus_tcp_master_recieve(); 
