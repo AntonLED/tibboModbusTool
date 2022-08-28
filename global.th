@@ -10,3 +10,6 @@
 #define TBT5_RTC1 0
 
 // DECLARATIONS
+extern float analogSignal; 
+extern float temp; 
+extern string get_data(string dataVal); 

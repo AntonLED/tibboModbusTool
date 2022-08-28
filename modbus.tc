@@ -33,7 +33,7 @@
 		if (val(temp)<5 || val(temp)>50){
 			hum = "--";
 		}
-		result=temp+"x"+hum;
+		result = temp /*+"x"+hum*/;
 		return result;
 	} 
 //---------------------------------------------------------------------------------------------------->
@@ -55,7 +55,7 @@ bool modbus_init(modbusMode mode)
 			sock.localportlist = "502"; 
 			sock.inconmode = PL_SOCK_INCONMODE_ANY_IP_ANY_PORT; 
 			sock.reconmode = PL_SOCK_RECONMODE_0;
-			sock.allowedinterfaces = "NET"; 
+			sock.allowedinterfaces = "NET"; 			
 			sock.connectiontout = 10; 
 			if (sock.txbuffrq(3) != 3 || sock.rxbuffrq(3) != 3)
 				return false; 
@@ -132,11 +132,9 @@ bool modbus_tcp_recieve(string& data, modbusSocket socket, modbusRole role)
 			reqPacket.header.unitId = asc(mid(data, 7, 1)); 
 			if (reqPacket.header.unitId == MODBUS_UNIT_ID)
 			{
-				reqPacket.pdu.funcCode = asc(mid(data, 8, 1)); 				
+				reqPacket.pdu.funcCode = asc(mid(data, 8, 1)); 	
 				if (reqPacket.pdu.funcCode == readCoilStatus)
 				{
-					int modbus_start_ref =  asc(mid(data, 9, 1)) * 256 + asc(mid(data, 10, 1)); 
-					int modbus_reg_count = asc(mid(data, 11, 1)) * 256 + asc(mid(data, 12, 1)); 
 					string response = "";
 					unsigned char state = 1;
 					response += chr(reqPacket.header.transId >> 8) +
@@ -149,6 +147,33 @@ bool modbus_tcp_recieve(string& data, modbusSocket socket, modbusRole role)
 					response += chr(reqPacket.pdu.funcCode); 
 					response += chr(1); 
 					response += chr(state); 
+					return modbus_tcp_send(response, socket);
+				}
+				else if (reqPacket.pdu.funcCode == readHoldingRegisters)
+				{
+					unsigned int modbus_start_ref =  asc(mid(data, 9, 1)) * 256 + asc(mid(data, 10, 1)); 
+					unsigned int modbus_reg_count = asc(mid(data, 11, 1)) * 256 + asc(mid(data, 12, 1)); 
+					string response = "";
+					response += chr(reqPacket.header.transId >> 8) +
+								chr(reqPacket.header.transId & 0xFF);
+					response += chr(reqPacket.header.protId >> 8) +
+								chr(reqPacket.header.protId & 0xFF);
+					response += chr(0) +
+								chr(7);
+					response += chr(reqPacket.header.unitId);
+					response += chr(reqPacket.pdu.funcCode); 
+					response += chr(4);  
+					float analogSig; 
+					tbt53_get_current(analogSig); 
+					analogSig += 1.0; 
+					if (modbus_rtu_send(get_data("temp"), TBT5_SLOT))
+						pat.play("B", PL_PAT_NOINT); 
+					unsigned int tempSig = temp; 
+					unsigned int sig = val(ftostr(analogSig * 1000, FTOSTR_MODE_PLAIN, 3)); 
+					response += chr(sig >> 8) +
+								chr(sig & 0xFF); 
+					response += chr(tempSig >> 8) +
+								chr(tempSig & 0xFF); 
 					return modbus_tcp_send(response, socket); 
 				}
 			}
@@ -176,7 +201,8 @@ bool modbus_rtu_recieve(string& data, modbusSocket socket, modbusRole role)
 		{
 			if (crc == respPacket.crc)
 			{
-				sys.debugprint(get_temp_and_hum(data) + "\n");
+				temp = strtof(get_temp_and_hum(data)); 
+				sys.debugprint(str(temp) + "\n"); 
 				return true;	
 			}
 			else 

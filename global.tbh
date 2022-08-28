@@ -1,6 +1,11 @@
 'DEFINES-------------------------------------------------------------
-
+#define TBT53_CLK_PIN PL_IO_NUM_15_TX3
+#define TBT53_DATA_PIN PL_IO_NUM_14_RX3
+#define TBT53_DEBUG_PRINT 1
 'INCLUDES------------------------------------------------------------
 include "sock\trunk\sock.tbh"
+include "ssi\trunk\ssi.tbh"
+include "super_i2c\trunk\super_i2c.tbh"
+include "tbt53.tbh"
 
 'DECLARATIONS--------------------------------------------------------

@@ -28,6 +28,8 @@ string get_data(string dataVal)
 	return request; 
 }
 
+float analogSignal = 0.0; 
+float temp = 0.0; 
 
 void on_sys_init()
 {
@@ -38,7 +40,7 @@ void on_sys_init()
 	net.ip = dev_ip;
 	net.netmask = dev_netmask; 
 	net.gatewayip = dev_gateway; 
-		
+			
 //	// Tibbits setup
 //	if (tibbits_init())
 //		pat.play("--G-G-G", PL_PAT_CANINT);
@@ -50,13 +52,22 @@ void on_sys_init()
 		pat.play("--G-G-G", PL_PAT_CANINT);
 	else 
 		pat.play("--R-R-R", PL_PAT_CANINT); 
+		
+	if (tbt53_init(YES) == OK)
+		pat.play("--G-G-G", PL_PAT_CANINT); 
+	else 
+		pat.play("--R-R-R", PL_PAT_CANINT); 
 }
 
-void on_sys_timer()
-{	
-	if (modbus_rtu_send(get_data("temp"), TBT5_SLOT))
-		pat.play("B", PL_PAT_NOINT); 
-}
+//void on_sys_timer()
+//{	 
+//	if (tbt53_get_current(analogSignal) == OK)
+//		sys.debugprint(ftostr(analogSignal, FTOSTR_MODE_AUTO, 6) + "\n"); 
+//	else 
+//		sys.debugprint("open loop" + "\n"); 
+//	if (modbus_rtu_send(get_data("temp"), TBT5_SLOT))
+//		pat.play("B", PL_PAT_NOINT); 
+//}
 
 void on_sock_data_arrival()
 {
@@ -73,4 +84,3 @@ void on_ser_data_arrival()
 	if (ser.num == TBT5_SLOT)
 		modbus_recieve(ser.getdata(255), ser.num, modbusMaster, modbusRtu);
 }
-	 
