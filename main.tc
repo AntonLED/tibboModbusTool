@@ -2,62 +2,6 @@
 #includeb "global.tbh"
 
 //====================================================================
-string get_data_rtu(string dataVal)
-{
-	string request = "";
-	RtuPacket packet; 
-	packet.slaveId = 65;
-	packet.funcCode = readInputRegisters; 
-	if (dataVal == "temp")
-	{
-		unsigned int temp_addr = 400, hum_addr = 404; 
-		packet.data += chr(temp_addr >> 8) + 
-					   chr(temp_addr & 0xFF);
-		packet.data += chr(0) +
-					   chr(1); 
-	} 
-	request += chr(packet.slaveId);
-	request += chr(packet.funcCode); 
-	request += packet.data; 
-	
-	packet.crc = CRC16(request, len(request)); 
-	request += chr(packet.crc >> 8) +
-			   chr(packet.crc & 0xFF);
-			   
-	return request; 
-}
-
-string get_data_tcp()
-{
-	string request = "";
-	TcpPacket packet; 
-	packet.header.transId = 1; 
-	packet.header.protId = 0;
-	packet.header.length = 4;
-	packet.header.unitId = 1; 
-	packet.pdu.funcCode = readInputRegisters; 
-	
-	request += chr(packet.header.transId >> 8) +
-			   chr(packet.header.transId & 0xFF); 
-	request += chr(packet.header.protId >> 8) +
-			   chr(packet.header.protId & 0xFF);
-	request += chr(packet.header.length >> 8) + 
-			   chr(packet.header.length & 0xFF); 
-	request += chr(packet.header.unitId);
-	request += chr(packet.pdu.funcCode); 
-
-	unsigned int regAddr = 7520; 
-	unsigned int regCount = 2; 
-	packet.pdu.data += chr(regAddr >> 8) + 
-					   chr(regAddr & 0xFF); 
-	packet.pdu.data += chr(regCount >> 8) +
-					   chr(regCount & 0xFF); 
-	
-	request += packet.pdu.data; 
-	
-	return request; 
-}
-
 float analogSignal = 0.0; 
 float temp = 0.0; 
 

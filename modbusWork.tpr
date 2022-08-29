@@ -131,11 +131,13 @@ location=commonlib
 path=device.th
 type=cheader
 format=65001
+condition=
 locked=no
 location=project
 [file18]
 path=device.tc
 type=c
 format=65001
+condition=
 locked=no
 location=project

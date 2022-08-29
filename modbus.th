@@ -74,7 +74,10 @@ extern bool modbus_recieve(string& data, modbusSocket socket, modbusRole role, m
 extern bool modbus_tcp_send(string& data, modbusSocket socket); 
 extern bool modbus_rtu_send(string& data, modbusSocket socket);
 extern bool modbus_outgoing_connect(modbusSocket socket, string& slaveIp); 
-extern bool modbus_outgoing_disconnect(modbusSocket socket, string& slaveIp); 
+extern bool modbus_outgoing_disconnect(modbusSocket socket, string& slaveIp); 	
+extern string modbus_gen_tcp_response(TcpPacket packet); 
+extern string modbus_gen_tcp_request(TcpPacket packet); 
+extern string modbus_gen_rtu_request(RtuPacket packet); 
 
 // ----------------------------------------------------------------------------------------------------
 #define TCP_SLAVE_POLLING_TIMEOUT 10 // in half-seconds
